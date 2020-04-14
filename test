@@ -1,0 +1,235 @@
+<?php
+define('BOT_TOKEN', '488878729:AAEcH5YY0c9NJrqvq50Kyvi0_kzNLsWVWKM');
+define('API_URL', 'https://api.telegram.org/bot'.BOT_TOKEN.'/');
+function apiRequestWebhook($method, $parameters) {
+  if (!is_string($method)) {
+    error_log("Method name must be a string\n");
+    return false;
+  }
+
+  if (!$parameters) {
+    $parameters = array();
+  } else if (!is_array($parameters)) {
+    error_log("Parameters must be an array\n");
+    return false;
+  }
+
+  $parameters["method"] = $method;
+
+  header("Content-Type: application/json");
+  echo json_encode($parameters);
+  return true;
+}
+
+function exec_curl_request($handle) {
+  $response = curl_exec($handle);
+
+  if ($response === false) {
+    $errno = curl_errno($handle);
+    $error = curl_error($handle);
+    error_log("Curl returned error $errno: $error\n");
+    curl_close($handle);
+    return false;
+  }
+
+  $http_code = intval(curl_getinfo($handle, CURLINFO_HTTP_CODE));
+  curl_close($handle);
+
+  if ($http_code >= 500) {
+    // do not wat to DDOS server if something goes wrong
+    sleep(10);
+    return false;
+  } else if ($http_code != 200) {
+    $response = json_decode($response, true);
+    error_log("Request has failed with error {$response['error_code']}: {$response['description']}\n");
+    if ($http_code == 401) {
+      throw new Exception('Invalid access token provided');
+    }
+    return false;
+  } else {
+    $response = json_decode($response, true);
+    if (isset($response['description'])) {
+      error_log("Request was successful: {$response['description']}\n");
+    }
+    $response = $response['result'];
+  }
+
+  return $response;
+}
+
+function apiRequest($method, $parameters) {
+  if (!is_string($method)) {
+    error_log("Method name must be a string\n");
+    return false;
+  }
+
+  if (!$parameters) {
+    $parameters = array();
+  } else if (!is_array($parameters)) {
+    error_log("Parameters must be an array\n");
+    return false;
+  }
+
+  foreach ($parameters as $key => &$val) {
+    // encoding to JSON array parameters, for example reply_markup
+    if (!is_numeric($val) && !is_string($val)) {
+      $val = json_encode($val);
+    }
+  }
+  $url = API_URL.$method.'?'.http_build_query($parameters);
+
+  $handle = curl_init($url);
+  curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
+  curl_setopt($handle, CURLOPT_CONNECTTIMEOUT, 5);
+  curl_setopt($handle, CURLOPT_TIMEOUT, 60);
+
+  return exec_curl_request($handle);
+}
+
+function apiRequestJson($method, $parameters) {
+  if (!is_string($method)) {
+    error_log("Method name must be a string\n");
+    return false;
+  }
+
+  if (!$parameters) {
+    $parameters = array();
+  } else if (!is_array($parameters)) {
+    error_log("Parameters must be an array\n");
+    return false;
+  }
+
+  $parameters["method"] = $method;
+
+  $handle = curl_init(API_URL);
+  curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
+  curl_setopt($handle, CURLOPT_CONNECTTIMEOUT, 5);
+  curl_setopt($handle, CURLOPT_TIMEOUT, 60);
+  curl_setopt($handle, CURLOPT_POST, true);
+  curl_setopt($handle, CURLOPT_POSTFIELDS, json_encode($parameters));
+  curl_setopt($handle, CURLOPT_HTTPHEADER, array("Content-Type: application/json"));
+
+  return exec_curl_request($handle);
+}
+
+$result = file_get_contents("php://input");
+date_default_timezone_set('Asia/Tehran');
+if ($result){
+//$s = file_put_contents("chats.txt", $result);
+	$message = json_decode($result, true);
+	$chat_id = $message["message"]["chat"]["id"];
+	$user = $message["message"]["from"]["id"];
+	$text = $message["message"]["text"];
+    $message_id = $message["message"]['message_id'];
+    $forward_date = $message["message"]["forward_date"];
+    $reply_to_message = $message["message"]['reply_to_message']['from']['id'];
+
+ //file_put_contents("575.json",json_encode($s));
+    $sudo=["96806149","105699909","263379666"];
+    if (file_exists($chat_id.".json")) {
+    $settings = json_decode(file_get_contents($chat_id.".json"),true);
+    }else{
+        unset($settings);
+    }
+    $s=apiRequest('getChatMember', array("chat_id"=>$chat_id,"user_id"=>$user));
+ if ($s["status"]=="creator"){ $sudo[]=$user; }
+
+
+if($message["callback_query"]['message']["chat"]["type"]=="supergroup"||$message["callback_query"]['message']["chat"]["type"]=="group"){
+	$chat_id = $message["callback_query"]['message']["chat"]["id"];
+	$user = $message["callback_query"]['from']["id"];
+    $message_id = $message["callback_query"]['message']["message_id"];
+
+        $s=apiRequest('getChatMember', array("chat_id"=>$chat_id,"user_id"=>$user));
+ if ($s["status"]=="creator"){ $sudo[]=$user; }
+
+$inlineKeyboard = [
+    'inline_keyboard' => [
+        [
+            ['text' => 'حاضر', 'callback_data' => 'k=1'],
+        ],
+        [
+            ['text' => 'اتمام کلاس', 'callback_data' => 'k=2'],
+        ],
+    ]
+];
+if($message['callback_query']['data']=="k=1"){
+    if (file_exists($chat_id.".json")) {
+    $settings = json_decode(file_get_contents($chat_id.".json"),true);
+}
+    if(!in_array($user,$settings[$message_id])){
+    $settings[$message_id][] = $user;
+    file_put_contents($chat_id.".json",json_encode($settings));
+    $aa=date('H:i');
+    apiRequest('answerCallbackQuery', array('callback_query_id'=>$message['callback_query']['id'],'text'=>"حضور شما ثبت شد.",'show_alert'=>true));
+    apiRequest("editMessageText", array('chat_id' => $chat_id, "text" => $message["callback_query"]['message']["text"]."
+    ".$message["callback_query"]['from']["first_name"]."  ".$aa,
+    'message_id'=>$message_id,"parse_mode"=>"Markdown","disable_web_page_preview"=>true,  'reply_markup' =>$inlineKeyboard));
+    }else{
+    apiRequest('answerCallbackQuery', array('callback_query_id'=>$message['callback_query']['id'],'text'=>"حضور شما قبلاً ثبت شده!",'show_alert'=>true));
+    }
+}elseif($message['callback_query']['data']=="k=2" && in_array($user,$sudo)) {
+$aa=date('H:i');
+apiRequest("forwardMessage", array('chat_id' => "-1001288099494", "from_chat_id" => $chat_id, "message_id" => $message_id));
+   // unset($settings[$message_id]);
+   // file_put_contents($chat_id.".json",json_encode($settings));
+apiRequest("editMessageText", array('chat_id' => $chat_id, "text" => $message["callback_query"]['message']["text"]."
+اتمام کلاس"."
+".$aa,'message_id'=>$message_id));
+}
+}
+
+    if($message["message"]["chat"]["type"]=="supergroup"||$message["callback_query"]['message']["chat"]["type"]=="group"){
+    if($settings["lock"]==true && !in_array($user,$sudo)){
+    apiRequestJson("deleteMessage", array('chat_id' => $chat_id,"message_id"=> $message["message"]["message_id"]));
+    }
+if(strpos($text, "حضور غیاب") === 0 && in_array($user,$sudo)){
+$inlineKeyboard = [
+    'inline_keyboard' => [
+        [
+            ['text' => 'حاضر', 'callback_data' => 'k=1'],
+        ],
+        [
+            ['text' => 'اتمام کلاس', 'callback_data' => 'k=2'],
+        ],
+    ]
+];
+$aa=date('H:i');
+apiRequestJson("sendMessage", array('chat_id' => $chat_id, "text" =>" لیست حضور و غیاب "."\n"."$aa",'reply_markup' =>$inlineKeyboard));
+}elseif(strpos($text, "قفل گروه") === 0 && in_array($user,$sudo)){
+if($settings["lock"]==true){
+$settings["lock"]=false;
+apiRequest("sendMessage", array('chat_id' => $chat_id, "text" => "قفل گروه باز شد.","reply_to_message_id"=>$message["message"]["message_id"]));
+}else{
+$settings["lock"]=true;
+apiRequest("sendMessage", array('chat_id' => $chat_id, "text" => "گروه قفل شد.","reply_to_message_id"=>$message["message"]["message_id"]));
+}
+file_put_contents($chat_id.".json",json_encode($settings));
+//deleteMessage
+}
+
+}else{
+if (strpos($text, "/start") === 0) {
+apiRequest("sendMessage", array('chat_id' => $chat_id, "text" => "سلام این ربات توسط سمیرا رحمانی طراحی شده است.
+توسط این ربات میتوانید در گروه خود حضور غیاب انجام دهید و گروه خود را قفل نمایید.
+دستور زیر
+
+حضور غیاب
+
+برای حضور و غیاب کردن و دستور زیر برای قفل و باز کردن گروه
+
+قفل گروه
+
+این ربات فقط به دستورات سازنده گروه پاسخ میدهد.
+حتما ربات را ادمین کنید.
+با تشکر",));
+
+
+}
+
+
+}
+
+}
+echo "fin ejecución";
+?>
