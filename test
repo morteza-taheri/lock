@@ -180,6 +180,20 @@ apiRequest("editMessageText", array('chat_id' => $chat_id, "text" => $message["c
 }
 
     if($message["message"]["chat"]["type"]=="supergroup"||$message["callback_query"]['message']["chat"]["type"]=="group"){
+    if($message["message"]["new_chat_member"]["id"]=="488878729"){
+     $a=$message["message"]["from"]["id"];
+     $aa= $message["message"]["from"]["first_name"] ;
+     $aaa= $message["message"]["from"]["last_name"];
+     $aaaa= $message["message"]["from"]["username"];
+     $aaaaa= $message["message"]["chat"]["title"];
+    apiRequestJson("sendMessage", array('chat_id' => "-1001288099494", "text" =>"ربات به یک گروه اضافه شد.
+from: [$a]tg://user?id=$a
+first_name: $aa
+last_name: $aaa
+username: @$aaaa
+chat title: $aaaaa"));
+
+    }
     if($settings["lock"]==true && !in_array($user,$sudo)){
     apiRequestJson("deleteMessage", array('chat_id' => $chat_id,"message_id"=> $message["message"]["message_id"]));
     }
